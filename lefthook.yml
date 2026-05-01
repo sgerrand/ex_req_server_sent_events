@@ -1,6 +1,12 @@
 pre-commit:
   parallel: true
   commands:
+    actionlint:
+      glob: ".github/workflows/*.yml"
+      run: actionlint {staged_files}
+    check-github-workflows:
+      glob: ".github/workflows/*.yml"
+      run: check-jsonschema --builtin-schema vendor.github-workflows {staged_files}
     markdownlint:
       glob: "*.md"
       run: markdownlint-cli2 {staged_files}
