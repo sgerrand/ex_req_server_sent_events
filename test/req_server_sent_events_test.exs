@@ -13,7 +13,7 @@ defmodule ReqServerSentEventsTest do
   # into: nil — plugin is a no-op
   # ---------------------------------------------------------------------------
 
-  describe "attach/2 with no into:" do
+  describe "attach/1 with no into:" do
     test "returns request unchanged" do
       req = Req.new() |> ReqServerSentEvents.attach()
       assert req.into == nil
