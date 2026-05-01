@@ -1,6 +1,8 @@
 defmodule ReqServerSentEventsIntegrationTest do
   use ExUnit.Case, async: true
 
+  @moduletag :integration
+
   alias ReqServerSentEvents.Frame
 
   setup do
