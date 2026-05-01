@@ -42,6 +42,28 @@ defmodule ReqServerSentEvents.FrameTest do
     test "consecutive delimiters produce no empty frames" do
       assert Frame.split("data: a\n\n\n\ndata: b\n\n") == {["data: a", "data: b"], ""}
     end
+
+    test "CRLF frame delimiter" do
+      assert Frame.split("data: hello\r\n\r\n") == {["data: hello"], ""}
+    end
+
+    test "CRLF frame delimiter with leftover" do
+      assert Frame.split("data: hello\r\n\r\ndata: part") == {["data: hello"], "data: part"}
+    end
+
+    test "CRLF line endings within frame normalised before split" do
+      input = "data: one\r\n\r\ndata: two\r\n\r\n"
+      assert Frame.split(input) == {["data: one", "data: two"], ""}
+    end
+
+    test "CRLF split across chunks handled correctly" do
+      chunk1 = "data: hel"
+      chunk2 = "lo\r\n\r\n"
+      {frames1, leftover} = Frame.split(chunk1)
+      assert frames1 == []
+      {frames2, _} = Frame.split(leftover <> chunk2)
+      assert frames2 == ["data: hello"]
+    end
   end
 
   describe "parse/1" do
@@ -121,6 +143,25 @@ defmodule ReqServerSentEvents.FrameTest do
       assert Frame.parse("data: hello") == %Frame{data: "hello"}
       assert Frame.parse("data:hello") == %Frame{data: "hello"}
       assert Frame.parse("data:  hello") == %Frame{data: " hello"}
+    end
+
+    test "CRLF line endings in frame" do
+      assert Frame.parse("event: ping\r\ndata: hello") == %Frame{event: "ping", data: "hello"}
+    end
+
+    test "CRLF frame with all fields" do
+      raw = "event: update\r\ndata: payload\r\nid: 99\r\nretry: 1000"
+
+      assert Frame.parse(raw) == %Frame{
+               event: "update",
+               data: "payload",
+               id: "99",
+               retry: 1000
+             }
+    end
+
+    test "CRLF multiple comment lines preserved in order" do
+      assert Frame.parse(": first\r\n: second") == %Frame{comments: ["first", "second"]}
     end
   end
 end

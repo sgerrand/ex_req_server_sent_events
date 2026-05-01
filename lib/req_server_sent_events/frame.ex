@@ -34,9 +34,9 @@ defmodule ReqServerSentEvents.Frame do
   """
   @spec split(binary()) :: {[binary()], binary()}
   def split(buffer) when is_binary(buffer) do
+    buffer = String.replace(buffer, "\r\n", "\n")
     parts = :binary.split(buffer, "\n\n", [:global])
     {complete, [leftover]} = Enum.split(parts, -1)
-    # Discard empty strings produced by consecutive "\n\n" delimiters
     {Enum.reject(complete, &(&1 == "")), leftover}
   end
 
@@ -56,15 +56,19 @@ defmodule ReqServerSentEvents.Frame do
   """
   @spec parse(binary()) :: t()
   def parse(raw) when is_binary(raw) do
-    raw
-    |> String.split("\n", trim: true)
-    |> Enum.reduce(%__MODULE__{}, &parse_line/2)
+    frame =
+      raw
+      |> String.replace("\r\n", "\n")
+      |> String.split("\n", trim: true)
+      |> Enum.reduce(%__MODULE__{}, &parse_line/2)
+
+    %{frame | comments: Enum.reverse(frame.comments)}
   end
 
   # Comment line — everything after the leading ":"
   defp parse_line(":" <> rest, frame) do
     comment = String.replace_prefix(rest, " ", "")
-    %{frame | comments: frame.comments ++ [comment]}
+    %{frame | comments: [comment | frame.comments]}
   end
 
   defp parse_line(line, frame) do
