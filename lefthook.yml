@@ -17,10 +17,13 @@ pre-commit:
       run: mix format --check-formatted
 
 pre-push:
+  parallel: true
   commands:
     unused-deps:
       run: mix deps.unlock --check-unused
     credo:
       run: mix credo --strict
+    docs:
+      run: mix docs --warnings-as-errors
     test:
       run: mix test --warnings-as-errors
