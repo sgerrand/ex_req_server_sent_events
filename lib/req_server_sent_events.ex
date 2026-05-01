@@ -88,17 +88,19 @@ defmodule ReqServerSentEvents do
       {frames, leftover} = ReqServerSentEvents.Frame.split(buf)
       resp = put_in(resp.private[:sse_buf], leftover)
 
-      Enum.reduce_while(frames, {:cont, {req, resp}}, fn raw, {:cont, {req, resp}} ->
-        frame = ReqServerSentEvents.Frame.parse(raw)
-
-        case user_fun.({:sse_event, frame}, {req, resp}) do
-          {:cont, acc} -> {:cont, {:cont, acc}}
-          {:halt, acc} -> {:halt, {:halt, acc}}
-        end
-      end)
+      Enum.reduce_while(frames, {:cont, {req, resp}}, &reduce_frame(&1, &2, user_fun))
     end
 
     %{req | into: wrapped}
+  end
+
+  defp reduce_frame(raw, {:cont, {req, resp}}, user_fun) do
+    frame = ReqServerSentEvents.Frame.parse(raw)
+
+    case user_fun.({:sse_event, frame}, {req, resp}) do
+      {:cont, acc} -> {:cont, {:cont, acc}}
+      {:halt, acc} -> {:halt, {:halt, acc}}
+    end
   end
 
   # ---------------------------------------------------------------------------
