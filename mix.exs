@@ -26,9 +26,7 @@ defmodule ReqServerSentEvents.MixProject do
   end
 
   def application do
-    [
-      extra_applications: [:logger]
-    ]
+    []
   end
 
   def cli do
