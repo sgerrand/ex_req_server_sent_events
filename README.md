@@ -21,9 +21,12 @@ end
 
 ## Usage
 
-Attach the plugin to any `%Req.Request{}` with `ReqServerSentEvents.attach/2`. It rewrites
+Attach the plugin to any `%Req.Request{}` with `ReqServerSentEvents.attach/1`. It rewrites
 the `into:` option in place so that each complete SSE frame is decoded to a
 `%ReqServerSentEvents.Frame{}` before reaching your handler.
+
+`into:` must be set on the request **before** calling `attach/1` — pass it to `Req.new/1`,
+not to `Req.get/2`.
 
 ### `into: fun`
 
@@ -32,12 +35,15 @@ Your function receives `{:sse_event, %ReqServerSentEvents.Frame{}}` instead of
 `{:halt, {req, resp}}` to stop early.
 
 ```elixir
-Req.new(url: "https://example.com/events")
+Req.new(
+  url: "https://example.com/events",
+  into: fn {:sse_event, frame}, {req, resp} ->
+    IO.inspect(frame)
+    {:cont, {req, resp}}
+  end
+)
 |> ReqServerSentEvents.attach()
-|> Req.get!(into: fn {:sse_event, frame}, {req, resp} ->
-  IO.inspect(frame)
-  {:cont, {req, resp}}
-end)
+|> Req.get!()
 ```
 
 ### `into: :self`
@@ -48,9 +54,9 @@ A `{ref, :sse_done}` sentinel is sent when the stream ends. Retrieve the ref wit
 
 ```elixir
 task = Task.async(fn ->
-  Req.new(url: "https://example.com/events")
+  Req.new(url: "https://example.com/events", into: :self)
   |> ReqServerSentEvents.attach()
-  |> Req.get!(into: :self)
+  |> Req.get!()
 end)
 
 resp = Task.await(task)
@@ -78,9 +84,9 @@ the server closes the connection, making this best suited for finite streams.
 
 ```elixir
 {:ok, resp} =
-  Req.new(url: "https://example.com/events")
+  Req.new(url: "https://example.com/events", into: [])
   |> ReqServerSentEvents.attach()
-  |> Req.get(into: [])
+  |> Req.get()
 
 frames = resp.body  # [%ReqServerSentEvents.Frame{}, ...]
 ```
