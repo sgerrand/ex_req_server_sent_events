@@ -15,6 +15,7 @@ mix format --check-formatted
 ```
 
 To run a single test by name:
+
 ```sh
 mix test test/req_server_sent_events_test.exs --only "frame split across two chunks"
 ```

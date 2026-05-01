@@ -1,0 +1,18 @@
+pre-commit:
+  parallel: true
+  commands:
+    markdownlint:
+      glob: "*.md"
+      run: markdownlint-cli2 {staged_files}
+    mix-compile:
+      run: mix compile --warnings-as-errors
+    mix-format:
+      glob: "*.{ex,exs}"
+      run: mix format --check-formatted
+
+pre-push:
+  commands:
+    unused-deps:
+      run: mix deps.unlock --check-unused
+    test:
+      run: mix test --warnings-as-errors

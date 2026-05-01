@@ -90,7 +90,7 @@ frames = resp.body  # [%ReqServerSentEvents.Frame{}, ...]
 Each decoded event is a `%ReqServerSentEvents.Frame{}` struct:
 
 | Field | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `event` | `String.t() \| nil` | Event type (`event:` field) |
 | `data` | `String.t() \| nil` | Payload; multiple `data:` lines joined with `"\n"` |
 | `id` | `String.t() \| nil` | Event ID for `Last-Event-ID` reconnect header |
