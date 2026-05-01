@@ -53,7 +53,7 @@ jobs:
       if: steps.cache-deps.outputs.cache-hit != 'true'
       run: |
         # shellcheck disable=SC1010
-        mix do deps.get --only ${{ env.MIX_ENV }}, deps.compile
+        mix do deps.get --only ${{ env.MIX_ENV }} + deps.compile
     - name: Generate coverage report
       run: mix coveralls.lcov
     - name: Upload coverage to Coveralls
@@ -92,7 +92,7 @@ jobs:
       if: steps.cache-deps.outputs.cache-hit != 'true'
       run: |
         # shellcheck disable=SC1010
-        mix do deps.get --only ${{ env.MIX_ENV }}, deps.compile
+        mix do deps.get --only ${{ env.MIX_ENV }} + deps.compile
     - name: Generate documentation
       run: mix docs --warnings-as-errors
 
@@ -153,7 +153,7 @@ jobs:
       if: steps.cache-deps.outputs.cache-hit != 'true'
       run: |
         # shellcheck disable=SC1010
-        mix do deps.get, deps.compile
+        mix do deps.get + deps.compile
     - name: Check that mix.lock is up to date
       run: mix deps.get --check-locked
       if: ${{ matrix.lint }}
