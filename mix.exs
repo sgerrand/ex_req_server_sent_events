@@ -43,7 +43,7 @@ defmodule ReqServerSentEvents.MixProject do
     [
       {:req, "~> 0.5"},
       {:bypass, "~> 2.1", only: :test, runtime: false},
-      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: :dev, runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test}
     ]
