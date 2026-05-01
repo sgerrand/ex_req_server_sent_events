@@ -10,6 +10,7 @@ wrapping all three of Req's streaming hooks: `into: fun`, `into: :self`, and
 
 ## Installation
 
+<!-- x-release-please-start-version -->
 ```elixir
 def deps do
   [
@@ -18,6 +19,7 @@ def deps do
   ]
 end
 ```
+<!-- x-release-please-end -->
 
 ## Usage
 
