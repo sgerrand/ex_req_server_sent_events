@@ -7,6 +7,9 @@ pre-commit:
     check-github-workflows:
       glob: ".github/workflows/*.yml"
       run: check-jsonschema --builtin-schema vendor.github-workflows {staged_files}
+    check-dependabot:
+      glob: ".github/dependabot.{yml,yaml}"
+      run: check-jsonschema --builtin-schema vendor.dependabot {staged_files}
     markdownlint:
       glob: "*.md"
       run: markdownlint-cli2 {staged_files}
