@@ -56,6 +56,9 @@ defmodule ReqServerSentEvents.Frame do
   """
   @spec parse(binary()) :: t()
   def parse(raw) when is_binary(raw) do
+    # The \r\n normalisation is intentional: split/1 already normalises when
+    # frames arrive through the plugin, but parse/1 is public and may be called
+    # directly with CRLF content.
     frame =
       raw
       |> String.replace("\r\n", "\n")
