@@ -123,7 +123,7 @@ defmodule ReqServerSentEvents do
       buf = (resp.private[:sse_buf] || "") <> chunk
       {frames, leftover} = ReqServerSentEvents.Frame.split(buf)
       resp = put_in(resp.private[:sse_buf], leftover)
-      resp = put_in(resp.private[:sse_ref], sse_ref)
+      resp = if resp.private[:sse_ref], do: resp, else: put_in(resp.private[:sse_ref], sse_ref)
 
       Enum.each(frames, fn raw ->
         send(caller, {sse_ref, {:sse_event, ReqServerSentEvents.Frame.parse(raw)}})
@@ -135,7 +135,7 @@ defmodule ReqServerSentEvents do
     req
     |> Req.Request.put_private(:sse_ref, sse_ref)
     |> Req.Request.put_private(:sse_caller, caller)
-    |> Map.replace!(:into, wrapped)
+    |> then(&%{&1 | into: wrapped})
     |> Req.Request.append_response_steps(sse_done: &send_sse_done/1)
   end
 
