@@ -9,14 +9,21 @@ defmodule ReqServerSentEvents do
   ## Usage
 
       # into: fun — frames delivered as {:sse_event, %Frame{}} arguments
-      Req.get!(url, into: fn {:sse_event, frame}, {req, resp} ->
-        IO.inspect(frame)
-        {:cont, {req, resp}}
-      end)
+      url
+      |> Req.new(into: fn {:sse_event, frame}, {req, resp} ->
+           IO.inspect(frame)
+           {:cont, {req, resp}}
+         end)
       |> ReqServerSentEvents.attach()
+      |> Req.get!()
 
       # into: :self — frames sent as messages to the calling process
-      task = Task.async(fn -> Req.get!(url, into: :self) |> ReqServerSentEvents.attach() end)
+      task = Task.async(fn ->
+        url
+        |> Req.new(into: :self)
+        |> ReqServerSentEvents.attach()
+        |> Req.get!()
+      end)
       resp = Task.await(task)
       sse_ref = ReqServerSentEvents.ref(resp)
       receive do
@@ -25,24 +32,25 @@ defmodule ReqServerSentEvents do
       end
 
       # into: collectable — frames collected into any Collectable
-      {:ok, resp} = Req.get(url, into: []) |> ReqServerSentEvents.attach()
+      {:ok, resp} =
+        url
+        |> Req.new(into: [])
+        |> ReqServerSentEvents.attach()
+        |> Req.get()
       frames = resp.body  # [%ReqServerSentEvents.Frame{}, ...]
   """
 
   @doc """
   Attach the SSE decoder to a `%Req.Request{}`.
 
-  Registers two Req steps:
-  - A request step (`sse_rewrite`) that rewrites the `into:` field to
-    decode SSE frames before delivering them to the user's handler.
-  - A response step (`sse_done`) that sends a `{ref, :sse_done}` sentinel
-    when `into: :self` is used (the `into: fun` callback has no `:done` signal).
+  Rewrites `req.into` to decode raw SSE byte chunks into
+  `%ReqServerSentEvents.Frame{}` structs before they reach the caller.
+  When `into: :self` is used, also registers a response step that sends
+  a `{ref, :sse_done}` sentinel once the stream closes.
   """
-  @spec attach(Req.Request.t(), keyword()) :: Req.Request.t()
-  def attach(%Req.Request{} = req, _opts \\ []) do
-    req
-    |> sse_rewrite()
-    |> Req.Request.append_response_steps(sse_done: &send_sse_done/1)
+  @spec attach(Req.Request.t()) :: Req.Request.t()
+  def attach(%Req.Request{} = req) do
+    sse_rewrite(req)
   end
 
   @doc """
@@ -104,7 +112,7 @@ defmodule ReqServerSentEvents do
   end
 
   # ---------------------------------------------------------------------------
-  # into: :self — rewrite to into: fun that sends messages
+  # into: :self — rewrite to into: fun that sends messages; register sse_done
   # ---------------------------------------------------------------------------
 
   defp wrap_self(%Req.Request{} = req) do
@@ -114,11 +122,8 @@ defmodule ReqServerSentEvents do
     wrapped = fn {:data, chunk}, {req, resp} ->
       buf = (resp.private[:sse_buf] || "") <> chunk
       {frames, leftover} = ReqServerSentEvents.Frame.split(buf)
-
-      resp =
-        resp
-        |> put_in([Access.key(:private), :sse_buf], leftover)
-        |> put_in([Access.key(:private), :sse_ref], sse_ref)
+      resp = put_in(resp.private[:sse_buf], leftover)
+      resp = put_in(resp.private[:sse_ref], sse_ref)
 
       Enum.each(frames, fn raw ->
         send(caller, {sse_ref, {:sse_event, ReqServerSentEvents.Frame.parse(raw)}})
@@ -131,6 +136,7 @@ defmodule ReqServerSentEvents do
     |> Req.Request.put_private(:sse_ref, sse_ref)
     |> Req.Request.put_private(:sse_caller, caller)
     |> Map.replace!(:into, wrapped)
+    |> Req.Request.append_response_steps(sse_done: &send_sse_done/1)
   end
 
   # ---------------------------------------------------------------------------
