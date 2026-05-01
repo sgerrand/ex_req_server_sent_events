@@ -210,5 +210,12 @@ defmodule ReqServerSentEventsTest do
       result = Enum.into(chunks, req.into)
       assert MapSet.size(result) == 2
     end
+
+    test ":halt delegates to the inner collectable's halt handler" do
+      req = build_req(into: [])
+      {acc, collector} = Collectable.into(req.into)
+      acc = collector.(acc, {:cont, "data: hello\n\n"})
+      assert collector.(acc, :halt) == :ok
+    end
   end
 end
