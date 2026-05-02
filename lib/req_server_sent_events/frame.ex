@@ -22,7 +22,8 @@ defmodule ReqServerSentEvents.Frame do
 
   `"\\r\\n"` sequences are normalised to `"\\n"` before splitting, so servers
   that send CRLF line endings (e.g. `"\\r\\n\\r\\n"` frame delimiters) are handled
-  transparently. The returned frame strings use `"\\n"` throughout.
+  transparently. The returned frame strings use `"\\n"` throughout. A leading
+  UTF-8 byte order mark (`"\\uFEFF"`) is stripped per the SSE spec.
 
   Returns `{complete_frames, leftover}` where `complete_frames` is a list of raw
   frame strings (without the trailing `"\\n\\n"`) and `leftover` is the remaining
@@ -41,7 +42,11 @@ defmodule ReqServerSentEvents.Frame do
   """
   @spec split(binary()) :: {[binary()], binary()}
   def split(buffer) when is_binary(buffer) do
-    buffer = String.replace(buffer, "\r\n", "\n")
+    buffer =
+      buffer
+      |> String.trim_leading(<<0xEF, 0xBB, 0xBF>>)
+      |> String.replace("\r\n", "\n")
+
     parts = :binary.split(buffer, "\n\n", [:global])
     {complete, [leftover]} = Enum.split(parts, -1)
     {Enum.reject(complete, &(&1 == "")), leftover}
@@ -92,7 +97,11 @@ defmodule ReqServerSentEvents.Frame do
   end
 
   defp apply_field(frame, "event", value), do: %{frame | event: value}
-  defp apply_field(frame, "id", value), do: %{frame | id: value}
+
+  # Spec §9.2.6: id values containing U+0000 NULL must be ignored.
+  defp apply_field(frame, "id", value) do
+    if String.contains?(value, <<0>>), do: frame, else: %{frame | id: value}
+  end
 
   defp apply_field(frame, "data", value) do
     case frame.data do
@@ -101,9 +110,10 @@ defmodule ReqServerSentEvents.Frame do
     end
   end
 
+  # Spec §9.2.6: retry must be a non-negative integer; otherwise ignore the field.
   defp apply_field(frame, "retry", value) do
     case Integer.parse(value) do
-      {ms, ""} -> %{frame | retry: ms}
+      {ms, ""} when ms >= 0 -> %{frame | retry: ms}
       _ -> frame
     end
   end

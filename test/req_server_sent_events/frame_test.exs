@@ -64,6 +64,18 @@ defmodule ReqServerSentEvents.FrameTest do
       {frames2, _} = Frame.split(leftover <> chunk2)
       assert frames2 == ["data: hello"]
     end
+
+    test "leading UTF-8 BOM stripped from buffer" do
+      bom = <<0xEF, 0xBB, 0xBF>>
+      assert Frame.split(bom <> "data: hello\n\n") == {["data: hello"], ""}
+    end
+
+    test "leading UTF-8 BOM only stripped from very start of buffer" do
+      bom = <<0xEF, 0xBB, 0xBF>>
+      input = "data: hello\n\n" <> bom <> "data: world\n\n"
+      {frames, _} = Frame.split(input)
+      assert ["data: hello", _bom_prefixed] = frames
+    end
   end
 
   describe "parse/1" do
@@ -87,6 +99,16 @@ defmodule ReqServerSentEvents.FrameTest do
       assert Frame.parse("retry: 5000ms") == %Frame{}
       assert Frame.parse("retry: abc") == %Frame{}
       assert Frame.parse("retry: 1.5") == %Frame{}
+    end
+
+    test "retry field with negative value is ignored" do
+      assert Frame.parse("retry: -1") == %Frame{}
+      assert Frame.parse("retry: -1000") == %Frame{}
+    end
+
+    test "id field containing NUL byte is ignored" do
+      assert Frame.parse("id: ok") == %Frame{id: "ok"}
+      assert Frame.parse("id: bad" <> <<0>> <> "value") == %Frame{}
     end
 
     test "comment line" do
