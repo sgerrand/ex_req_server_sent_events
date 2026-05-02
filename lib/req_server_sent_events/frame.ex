@@ -20,6 +20,10 @@ defmodule ReqServerSentEvents.Frame do
   @doc """
   Split a byte buffer on the SSE frame delimiter (`"\\n\\n"`).
 
+  `"\\r\\n"` sequences are normalised to `"\\n"` before splitting, so servers
+  that send CRLF line endings (e.g. `"\\r\\n\\r\\n"` frame delimiters) are handled
+  transparently. The returned frame strings use `"\\n"` throughout.
+
   Returns `{complete_frames, leftover}` where `complete_frames` is a list of raw
   frame strings (without the trailing `"\\n\\n"`) and `leftover` is the remaining
   bytes that have not yet formed a complete frame.
@@ -27,6 +31,9 @@ defmodule ReqServerSentEvents.Frame do
   ## Examples
 
       iex> ReqServerSentEvents.Frame.split("data: hello\\n\\n")
+      {["data: hello"], ""}
+
+      iex> ReqServerSentEvents.Frame.split("data: hello\\r\\n\\r\\n")
       {["data: hello"], ""}
 
       iex> ReqServerSentEvents.Frame.split("data: partial")
