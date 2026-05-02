@@ -132,6 +132,12 @@ Each decoded event is a `%ReqServerSentEvents.Frame{}` struct:
 Frames with no `data:` field (e.g. comment-only keepalives) are passed through
 to the handler — filter or discard them as needed.
 
+The `id` and `retry` fields follow the SSE reconnection protocol: `retry` is the
+server-suggested delay in milliseconds before reconnecting, and `id` should be sent
+as the `Last-Event-ID` request header on reconnect. **This library decodes both
+fields but does not implement automatic reconnection** — that is the caller's
+responsibility.
+
 ## Development
 
 **Requirements:** Elixir ~> 1.17, Erlang/OTP compatible with your Elixir version.
@@ -143,8 +149,11 @@ mix deps.get
 # Run tests
 mix test
 
+# Run unit tests only (skips Bypass integration tests for a faster loop)
+mix test --exclude integration
+
 # Run tests with coverage
-mix test --cover
+mix coveralls.html
 
 # Format code
 mix format
@@ -155,5 +164,6 @@ mix format --check-formatted
 
 Tests do not require a running server. The plugin's streaming logic is exercised
 by calling the rewritten `into:` handlers directly with synthetic byte chunks.
-The optional integration tests in `test/req_server_sent_events_integration_test.exs` use
+The integration tests in `test/req_server_sent_events_integration_test.exs` use
 [Bypass](https://github.com/PSPDFKit-Labs/bypass) to spin up a local HTTP server.
+They can be excluded with `mix test --exclude integration` for a faster feedback loop.
