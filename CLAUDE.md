@@ -8,8 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 mix deps.get          # install dependencies
 mix compile --warnings-as-errors
 mix test              # full suite
+mix test --exclude integration          # unit tests only (faster local loop)
 mix test test/req_server_sent_events/frame_test.exs          # frame parser unit tests only
-mix test test/req_server_sent_events_test.exs                # plugin integration tests only
+mix test test/req_server_sent_events_test.exs                # plugin unit tests only
+mix test test/req_server_sent_events_integration_test.exs    # Bypass integration tests only
 mix test --cover
 mix format --check-formatted
 ```
@@ -24,7 +26,7 @@ mix test test/req_server_sent_events_test.exs --only "frame split across two chu
 
 The plugin is three layers:
 
-**`ReqServerSentEvents.Frame`** (`lib/req_server_sent_events/frame.ex`) — pure, stateless SSE parser. No IO, no deps. `split/1` splits a byte buffer on `"\n\n"` returning `{[complete_frames], leftover}`; `parse/1` turns one raw frame string into a `%Frame{}` struct. This is the only place SSE wire-format knowledge lives.
+**`ReqServerSentEvents.Frame`** (`lib/req_server_sent_events/frame.ex`) — pure, stateless SSE parser. No IO, no deps. `split/1` splits a byte buffer on `"\n\n"` returning `{[complete_frames], leftover}`; `parse/1` turns one raw frame string into a `%Frame{}` struct. Both functions normalise `\r\n` line endings before processing. This is the only place SSE wire-format knowledge lives.
 
 **`ReqServerSentEvents.CollectableWrapper`** (`lib/req_server_sent_events/collectable_wrapper.ex`) — a struct that wraps any user-supplied `Collectable`. Implements the `Collectable` protocol; the accumulator tuple `{buffer, inner_acc}` carries both the SSE byte buffer and the inner collectable's state across chunks. Delegates decoded `%Frame{}` structs to the inner collectable. Leftover bytes at `:done`/`:halt` are discarded.
 
@@ -38,4 +40,8 @@ The plugin is three layers:
 
 ## Tests
 
-Tests drive the plugin without HTTP by calling the rewritten `req.into` function directly with synthetic `{:data, chunk}` binaries, or feeding chunks into the `CollectableWrapper` via `Enum.into/2`. No live server is needed. `Bypass` is available as a test dep for integration tests but none are written yet.
+`test/req_server_sent_events_test.exs` — unit tests for the plugin. Drive the plugin without HTTP by calling the rewritten `req.into` function directly with synthetic `{:data, chunk}` binaries, or feeding chunks into the `CollectableWrapper` via `Enum.into/2`. No live server is needed.
+
+`test/req_server_sent_events/frame_test.exs` — unit tests for the pure `Frame` parser in isolation.
+
+`test/req_server_sent_events_integration_test.exs` — integration tests tagged `@moduletag :integration`. Use [Bypass](https://github.com/PSPDFKit-Labs/bypass) to spin up a local HTTP server and exercise the full Req pipeline. Run with `mix test --exclude integration` to skip them for a faster feedback loop.
