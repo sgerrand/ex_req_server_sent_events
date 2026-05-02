@@ -8,6 +8,11 @@ Decodes chunked SSE byte streams into `%ReqServerSentEvents.Frame{}` structs, tr
 wrapping all three of Req's streaming hooks: `into: fun`, `into: :self`, and
 `into: collectable`.
 
+[![Hex.pm](https://img.shields.io/hexpm/v/req_server_sent_events.svg)](https://hex.pm/packages/req_server_sent_events)
+[![Documentation](https://img.shields.io/badge/hex-docs-purple)](https://hexdocs.pm/req_server_sent_events)
+[![CI](https://github.com/sgerrand/ex_req_server_sent_events/actions/workflows/ci.yml/badge.svg)](https://github.com/sgerrand/ex_req_server_sent_events/actions/workflows/ci.yml)
+[![Coverage](https://coveralls.io/repos/github/sgerrand/ex_req_server_sent_events/badge.svg?branch=main)](https://coveralls.io/github/sgerrand/ex_req_server_sent_events?branch=main)
+
 ## Installation
 
 <!-- x-release-please-start-version -->
