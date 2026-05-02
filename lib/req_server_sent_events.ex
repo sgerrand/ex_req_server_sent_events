@@ -2,7 +2,7 @@ defmodule ReqServerSentEvents do
   @moduledoc """
   Req plugin for Server-Sent Events (SSE).
 
-  Attach to any `%Req.Request{}` via `attach/2`. The plugin intercepts
+  Attach to any `%Req.Request{}` via `attach/1`. The plugin intercepts
   Req's three streaming hooks and transparently decodes raw SSE byte chunks
   into `%ReqServerSentEvents.Frame{}` structs.
 

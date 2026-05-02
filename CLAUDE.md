@@ -28,10 +28,10 @@ The plugin is three layers:
 
 **`ReqServerSentEvents.CollectableWrapper`** (`lib/req_server_sent_events/collectable_wrapper.ex`) — a struct that wraps any user-supplied `Collectable`. Implements the `Collectable` protocol; the accumulator tuple `{buffer, inner_acc}` carries both the SSE byte buffer and the inner collectable's state across chunks. Delegates decoded `%Frame{}` structs to the inner collectable. Leftover bytes at `:done`/`:halt` are discarded.
 
-**`ReqServerSentEvents`** (`lib/req_server_sent_events.ex`) — the plugin entry point. `attach/2` immediately rewrites `req.into` (a top-level field on `%Req.Request{}`, not `req.options`) by calling `sse_rewrite/1` directly, then appends a `sse_done` response step. The three branches:
+**`ReqServerSentEvents`** (`lib/req_server_sent_events.ex`) — the plugin entry point. `attach/1` immediately rewrites `req.into` (a top-level field on `%Req.Request{}`, not `req.options`) by calling `sse_rewrite/1` directly. The three branches:
 
 - `into: fun` — wraps the user function; SSE byte buffer lives in `resp.private[:sse_buf]` (flows inside Req's existing `{req, resp}` accumulator). Calls user function as `fun.({:sse_event, %Frame{}}, {req, resp})`. Uses `Enum.reduce_while` so `{:halt, ...}` propagates immediately.
-- `into: :self` — rewrites to `into: fun` that sends `{sse_ref, {:sse_event, frame}}` messages; the `sse_done` response step sends `{sse_ref, :sse_done}` after the stream closes. `caller` and `sse_ref` are captured eagerly at `attach/2` time.
+- `into: :self` — rewrites to `into: fun` that sends `{sse_ref, {:sse_event, frame}}` messages; also appends a `sse_done` response step that sends `{sse_ref, :sse_done}` after the stream closes. `caller` and `sse_ref` are captured eagerly at `attach/1` time.
 - `into: collectable` — replaces the user's collectable with a `%CollectableWrapper{inner: collectable}`.
 
 `ref/1` accepts either `%Req.Request{}` or `%Req.Response{}` and reads `private[:sse_ref]`.
