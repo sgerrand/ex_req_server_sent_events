@@ -112,14 +112,25 @@ defmodule ReqServerSentEventsTest do
       assert ReqServerSentEvents.ref(req) == req.private[:sse_ref]
     end
 
-    test "ref/1 returns sse_ref from a response after the first chunk" do
+    test "ref/1 returns sse_ref from a response after the sse_done step runs" do
       req = build_req(into: :self)
       sse_ref = req.private[:sse_ref]
 
-      {req_new, resp} = {Req.Request.new(), %Req.Response{status: 200, body: ""}}
-      {:cont, {_req, resp}} = req.into.({:data, "data: x\n\n"}, {req_new, resp})
+      step_fn = Keyword.fetch!(req.response_steps, :sse_done)
+      resp = %Req.Response{status: 200, body: ""}
+      {_req, resp} = step_fn.({req, resp})
 
-      assert_received {^sse_ref, {:sse_event, _}}
+      assert ReqServerSentEvents.ref(resp) == sse_ref
+    end
+
+    test "ref/1 returns sse_ref from a response even with no body chunks" do
+      req = build_req(into: :self)
+      sse_ref = req.private[:sse_ref]
+
+      step_fn = Keyword.fetch!(req.response_steps, :sse_done)
+      resp = %Req.Response{status: 204, body: ""}
+      {_req, resp} = step_fn.({req, resp})
+
       assert ReqServerSentEvents.ref(resp) == sse_ref
     end
 

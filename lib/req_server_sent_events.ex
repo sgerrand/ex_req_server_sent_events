@@ -78,12 +78,15 @@ defmodule ReqServerSentEvents do
   # ---------------------------------------------------------------------------
 
   defp send_sse_done({req, resp}) do
-    with caller when not is_nil(caller) <- req.private[:sse_caller],
-         sse_ref when not is_nil(sse_ref) <- req.private[:sse_ref] do
-      send(caller, {sse_ref, :sse_done})
-    end
+    caller = req.private[:sse_caller]
+    sse_ref = req.private[:sse_ref]
 
-    {req, resp}
+    if caller && sse_ref do
+      send(caller, {sse_ref, :sse_done})
+      {req, put_in(resp.private[:sse_ref], sse_ref)}
+    else
+      {req, resp}
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -123,7 +126,6 @@ defmodule ReqServerSentEvents do
       buf = (resp.private[:sse_buf] || "") <> chunk
       {frames, leftover} = ReqServerSentEvents.Frame.split(buf)
       resp = put_in(resp.private[:sse_buf], leftover)
-      resp = if resp.private[:sse_ref], do: resp, else: put_in(resp.private[:sse_ref], sse_ref)
 
       Enum.each(frames, fn raw ->
         send(caller, {sse_ref, {:sse_event, ReqServerSentEvents.Frame.parse(raw)}})
