@@ -35,6 +35,20 @@ the `into:` option in place so that each complete SSE frame is decoded to a
 `into:` must be set on the request **before** calling `attach/1` — pass it to `Req.new/1`,
 not to `Req.get/2`.
 
+### `into: collectable`
+
+Decoded frames are collected into any `Collectable`. The request blocks until
+the server closes the connection, making this best suited for finite streams.
+
+```elixir
+{:ok, resp} =
+  Req.new(url: "https://example.com/events", into: [])
+  |> ReqServerSentEvents.attach()
+  |> Req.get()
+
+frames = resp.body  # [%ReqServerSentEvents.Frame{}, ...]
+```
+
 ### `into: fun`
 
 Your function receives `{:sse_event, %ReqServerSentEvents.Frame{}}` instead of
@@ -82,20 +96,6 @@ Stream.resource(
   fn _ -> :ok end
 )
 |> Enum.each(&IO.inspect/1)
-```
-
-### `into: collectable`
-
-Decoded frames are collected into any `Collectable`. The request blocks until
-the server closes the connection, making this best suited for finite streams.
-
-```elixir
-{:ok, resp} =
-  Req.new(url: "https://example.com/events", into: [])
-  |> ReqServerSentEvents.attach()
-  |> Req.get()
-
-frames = resp.body  # [%ReqServerSentEvents.Frame{}, ...]
 ```
 
 ## Frame fields
