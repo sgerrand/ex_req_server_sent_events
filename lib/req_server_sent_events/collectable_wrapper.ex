@@ -9,15 +9,16 @@ defmodule ReqServerSentEvents.CollectableWrapper do
   emitted once terminated by `"\\n\\n"`.
   """
 
-  defstruct [:inner]
+  defstruct [:inner, :max_size]
 
   defimpl Collectable do
-    def into(%ReqServerSentEvents.CollectableWrapper{inner: inner}) do
+    def into(%ReqServerSentEvents.CollectableWrapper{inner: inner, max_size: max_size}) do
       {inner_acc, inner_collector} = Collectable.into(inner)
 
       collector = fn
         {buf, iacc}, {:cont, chunk} ->
           {frames, leftover} = ReqServerSentEvents.Frame.split(buf <> chunk)
+          ReqServerSentEvents.check_frame_size!(leftover, max_size)
 
           new_iacc =
             Enum.reduce(frames, iacc, fn raw, acc ->

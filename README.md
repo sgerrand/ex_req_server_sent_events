@@ -35,6 +35,20 @@ the `into:` option in place so that each complete SSE frame is decoded to a
 `into:` must be set on the request **before** calling `attach/1` — pass it to `Req.new/1`,
 not to `Req.get/2`.
 
+### Options
+
+`attach/2` accepts an options keyword list:
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `:max_frame_size` | `pos_integer() \| nil` | Cap on the pending-frame buffer. If the buffer grows past this many bytes without a `"\n\n"` delimiter, a `ReqServerSentEvents.FrameTooLargeError` is raised. Defaults to `nil` (unbounded). |
+
+```elixir
+Req.new(url: url, into: [])
+|> ReqServerSentEvents.attach(max_frame_size: 1_048_576)
+|> Req.get!()
+```
+
 ### `into: collectable`
 
 Decoded frames are collected into any `Collectable`. The request blocks until

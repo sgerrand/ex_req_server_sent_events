@@ -2,11 +2,16 @@ defmodule ReqServerSentEventsTest do
   use ExUnit.Case, async: true
 
   alias ReqServerSentEvents.Frame
+  alias ReqServerSentEvents.FrameTooLargeError
 
   # Helper: build a Req.Request with the given into: value, attach the plugin,
   # and return the rewritten into: function (or collectable) for direct testing.
   defp build_req(into: value) do
     Req.new(into: value) |> ReqServerSentEvents.attach()
+  end
+
+  defp build_req(into: value, opts: opts) do
+    Req.new(into: value) |> ReqServerSentEvents.attach(opts)
   end
 
   # ---------------------------------------------------------------------------
@@ -227,6 +232,68 @@ defmodule ReqServerSentEventsTest do
       {acc, collector} = Collectable.into(req.into)
       acc = collector.(acc, {:cont, "data: hello\n\n"})
       assert collector.(acc, :halt) == :ok
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # :max_frame_size option
+  # ---------------------------------------------------------------------------
+
+  describe "attach/2 with :max_frame_size" do
+    test "into: fun raises FrameTooLargeError when leftover exceeds limit" do
+      req =
+        build_req(
+          into: fn {:sse_event, _}, acc -> {:cont, acc} end,
+          opts: [max_frame_size: 16]
+        )
+
+      {req_new, resp} = {Req.Request.new(), %Req.Response{status: 200, body: ""}}
+      huge = String.duplicate("a", 32)
+
+      assert_raise FrameTooLargeError, ~r/exceeds :max_frame_size of 16/, fn ->
+        req.into.({:data, huge}, {req_new, resp})
+      end
+    end
+
+    test "into: fun does not raise when complete frames within limit" do
+      req =
+        build_req(
+          into: fn {:sse_event, frame}, {req, resp} ->
+            frames = resp.private[:collected] || []
+            resp = put_in(resp.private[:collected], frames ++ [frame])
+            {:cont, {req, resp}}
+          end,
+          opts: [max_frame_size: 64]
+        )
+
+      {req_new, resp} = {Req.Request.new(), %Req.Response{status: 200, body: ""}}
+      assert {:cont, {_, resp}} = req.into.({:data, "data: small\n\n"}, {req_new, resp})
+      assert [%Frame{data: "small"}] = resp.private[:collected]
+    end
+
+    test "into: :self raises FrameTooLargeError when leftover exceeds limit" do
+      req = build_req(into: :self, opts: [max_frame_size: 8])
+
+      {req_new, resp} = {Req.Request.new(), %Req.Response{status: 200, body: ""}}
+      huge = String.duplicate("x", 64)
+
+      assert_raise FrameTooLargeError, fn ->
+        req.into.({:data, huge}, {req_new, resp})
+      end
+    end
+
+    test "into: collectable raises FrameTooLargeError when buffer exceeds limit" do
+      req = build_req(into: [], opts: [max_frame_size: 8])
+
+      assert_raise FrameTooLargeError, fn ->
+        Enum.into([String.duplicate("y", 64)], req.into)
+      end
+    end
+
+    test "FrameTooLargeError carries size and limit fields" do
+      err = %FrameTooLargeError{size: 100, limit: 50}
+      assert Exception.message(err) =~ "100 bytes"
+      assert Exception.message(err) =~ "50 bytes"
     end
   end
 end

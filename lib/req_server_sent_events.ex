@@ -47,10 +47,28 @@ defmodule ReqServerSentEvents do
   `%ReqServerSentEvents.Frame{}` structs before they reach the caller.
   When `into: :self` is used, also registers a response step that sends
   a `{ref, :sse_done}` sentinel once the stream closes.
+
+  ## Options
+
+    * `:max_frame_size` — maximum number of bytes allowed to accumulate in
+      the pending-frame buffer between delimiters. If the buffer grows past
+      this limit without seeing a `"\\n\\n"`, a
+      `ReqServerSentEvents.FrameTooLargeError` is raised. Defaults to `nil`
+      (unbounded).
   """
-  @spec attach(Req.Request.t()) :: Req.Request.t()
-  def attach(%Req.Request{} = req) do
-    sse_rewrite(req)
+  @spec attach(Req.Request.t(), keyword()) :: Req.Request.t()
+  def attach(req, opts \\ [])
+
+  def attach(%Req.Request{} = req, opts) do
+    req
+    |> put_max_frame_size(Keyword.get(opts, :max_frame_size))
+    |> sse_rewrite()
+  end
+
+  defp put_max_frame_size(req, nil), do: req
+
+  defp put_max_frame_size(req, n) when is_integer(n) and n > 0 do
+    Req.Request.put_private(req, :sse_max_frame_size, n)
   end
 
   @doc """
@@ -94,9 +112,12 @@ defmodule ReqServerSentEvents do
   # ---------------------------------------------------------------------------
 
   defp wrap_fun(%Req.Request{} = req, user_fun) do
+    max_size = req.private[:sse_max_frame_size]
+
     wrapped = fn {:data, chunk}, {req, resp} ->
       buf = (resp.private[:sse_buf] || "") <> chunk
       {frames, leftover} = ReqServerSentEvents.Frame.split(buf)
+      check_frame_size!(leftover, max_size)
       resp = put_in(resp.private[:sse_buf], leftover)
 
       Enum.reduce_while(frames, {:cont, {req, resp}}, &reduce_frame(&1, &2, user_fun))
@@ -121,10 +142,12 @@ defmodule ReqServerSentEvents do
   defp wrap_self(%Req.Request{} = req) do
     caller = self()
     sse_ref = make_ref()
+    max_size = req.private[:sse_max_frame_size]
 
     wrapped = fn {:data, chunk}, {req, resp} ->
       buf = (resp.private[:sse_buf] || "") <> chunk
       {frames, leftover} = ReqServerSentEvents.Frame.split(buf)
+      check_frame_size!(leftover, max_size)
       resp = put_in(resp.private[:sse_buf], leftover)
 
       Enum.each(frames, fn raw ->
@@ -146,6 +169,24 @@ defmodule ReqServerSentEvents do
   # ---------------------------------------------------------------------------
 
   defp wrap_collectable(%Req.Request{} = req, collectable) do
-    %{req | into: %ReqServerSentEvents.CollectableWrapper{inner: collectable}}
+    wrapper = %ReqServerSentEvents.CollectableWrapper{
+      inner: collectable,
+      max_size: req.private[:sse_max_frame_size]
+    }
+
+    %{req | into: wrapper}
+  end
+
+  @doc false
+  def check_frame_size!(_leftover, nil), do: :ok
+
+  def check_frame_size!(leftover, max_size) when is_integer(max_size) do
+    size = byte_size(leftover)
+
+    if size > max_size do
+      raise ReqServerSentEvents.FrameTooLargeError, size: size, limit: max_size
+    end
+
+    :ok
   end
 end
