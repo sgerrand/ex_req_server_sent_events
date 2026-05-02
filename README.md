@@ -73,6 +73,10 @@ Decoded frames are sent to the calling process as `{ref, {:sse_event, %Frame{}}}
 A `{ref, :sse_done}` sentinel is sent when the stream ends. Retrieve the ref with
 `ReqServerSentEvents.ref/1`.
 
+> **Note:** `self()` is captured when `attach/1` is called. Call `attach/1` in
+> the same process that will receive the messages — typically inside a
+> `Task.async` callback as shown below.
+
 ```elixir
 task = Task.async(fn ->
   Req.new(url: "https://example.com/events", into: :self)
@@ -82,7 +86,22 @@ end)
 
 resp = Task.await(task)
 ref = ReqServerSentEvents.ref(resp)
+```
 
+For short-lived or finite streams, a plain `receive` is sufficient:
+
+```elixir
+receive do
+  {^ref, {:sse_event, frame}} -> IO.inspect(frame)
+  {^ref, :sse_done}           -> :done
+after
+  30_000 -> :timeout
+end
+```
+
+For unbounded streams, wrap the receive in a `Stream.resource/3`:
+
+```elixir
 Stream.resource(
   fn -> ref end,
   fn ref ->
