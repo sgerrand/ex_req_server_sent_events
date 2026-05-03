@@ -14,6 +14,11 @@ defmodule ReqServerSentEvents.MixProject do
       test_coverage: [
         tool: ExCoveralls
       ],
+      dialyzer: [
+        plt_add_apps: [:mix],
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+        flags: [:unmatched_returns, :error_handling, :unknown]
+      ],
 
       # Hex
       description: "Req plugin for Server-Sent Events.",
@@ -45,6 +50,7 @@ defmodule ReqServerSentEvents.MixProject do
       {:telemetry, "~> 1.0"},
       {:bypass, "~> 2.1", only: :test, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test}
     ]

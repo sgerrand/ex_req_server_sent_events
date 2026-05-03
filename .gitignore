@@ -22,6 +22,10 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 req_server_sent_events-*.tar
 
+# Dialyzer PLT cache.
+/priv/plts/*.plt
+/priv/plts/*.plt.hash
+
 # Ignore local coding agent configuration files.
 /.claude/
 /.codex/

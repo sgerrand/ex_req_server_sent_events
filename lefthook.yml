@@ -32,6 +32,8 @@ pre-push:
       run: mix deps.unlock --check-unused
     credo:
       run: mix credo --strict
+    dialyzer:
+      run: mix dialyzer
     docs:
       run: mix docs --warnings-as-errors
     test:
