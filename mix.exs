@@ -42,6 +42,7 @@ defmodule ReqServerSentEvents.MixProject do
   defp deps do
     [
       {:req, "~> 0.5"},
+      {:telemetry, "~> 1.0"},
       {:bypass, "~> 2.1", only: :test, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},

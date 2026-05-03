@@ -22,7 +22,9 @@ defmodule ReqServerSentEvents.CollectableWrapper do
 
           new_iacc =
             Enum.reduce(frames, iacc, fn raw, acc ->
-              inner_collector.(acc, {:cont, ReqServerSentEvents.Frame.parse(raw)})
+              frame = ReqServerSentEvents.Frame.parse(raw)
+              ReqServerSentEvents.emit_decoded(raw, frame)
+              inner_collector.(acc, {:cont, frame})
             end)
 
           {leftover, new_iacc}

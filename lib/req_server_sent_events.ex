@@ -38,6 +38,27 @@ defmodule ReqServerSentEvents do
         |> ReqServerSentEvents.attach()
         |> Req.get()
       frames = resp.body  # [%ReqServerSentEvents.Frame{}, ...]
+
+  ## Telemetry
+
+  The plugin emits the following `:telemetry` events:
+
+    * `[:req_server_sent_events, :stream, :start]` — emitted on the first
+      decoded chunk of an `into: fun` or `into: :self` request.
+      Measurements: `%{system_time, monotonic_time}`. Metadata: `%{request: req}`.
+
+    * `[:req_server_sent_events, :frame, :decoded]` — emitted once per
+      decoded frame in any mode.
+      Measurements: `%{bytes: byte_size(raw)}`. Metadata: `%{frame: frame}`.
+
+    * `[:req_server_sent_events, :stream, :stop]` — emitted in a response
+      step when an `into: fun` or `into: :self` stream ends. Only fires if
+      `:start` fired (i.e. at least one chunk was processed).
+      Measurements: `%{monotonic_time, duration}`. Metadata: `%{request: req, response: resp}`.
+
+  `:start` and `:stop` are not emitted for `into: collectable` requests —
+  the wrapper has no access to the response. For stream-level timing in that
+  mode, use Req's own `[:req, :request, :start | :stop]` events.
   """
 
   @doc """
@@ -87,9 +108,18 @@ defmodule ReqServerSentEvents do
   # ---------------------------------------------------------------------------
 
   defp sse_rewrite(%Req.Request{into: nil} = req), do: req
-  defp sse_rewrite(%Req.Request{into: :self} = req), do: wrap_self(req)
-  defp sse_rewrite(%Req.Request{into: f} = req) when is_function(f, 2), do: wrap_fun(req, f)
+
+  defp sse_rewrite(%Req.Request{into: :self} = req),
+    do: req |> wrap_self() |> add_telemetry_stop()
+
+  defp sse_rewrite(%Req.Request{into: f} = req) when is_function(f, 2),
+    do: req |> wrap_fun(f) |> add_telemetry_stop()
+
   defp sse_rewrite(%Req.Request{into: c} = req), do: wrap_collectable(req, c)
+
+  defp add_telemetry_stop(req) do
+    Req.Request.append_response_steps(req, sse_telemetry_stop: &emit_stop_if_started/1)
+  end
 
   # ---------------------------------------------------------------------------
   # Response step — send :sse_done sentinel for the :self path
@@ -115,6 +145,7 @@ defmodule ReqServerSentEvents do
     max_size = req.private[:sse_max_frame_size]
 
     wrapped = fn {:data, chunk}, {req, resp} ->
+      resp = emit_start_if_needed(req, resp)
       buf = (resp.private[:sse_buf] || "") <> chunk
       {frames, leftover} = ReqServerSentEvents.Frame.split(buf)
       check_frame_size!(leftover, max_size)
@@ -128,6 +159,7 @@ defmodule ReqServerSentEvents do
 
   defp reduce_frame(raw, {:cont, {req, resp}}, user_fun) do
     frame = ReqServerSentEvents.Frame.parse(raw)
+    emit_decoded(raw, frame)
 
     case user_fun.({:sse_event, frame}, {req, resp}) do
       {:cont, acc} -> {:cont, {:cont, acc}}
@@ -145,13 +177,16 @@ defmodule ReqServerSentEvents do
     max_size = req.private[:sse_max_frame_size]
 
     wrapped = fn {:data, chunk}, {req, resp} ->
+      resp = emit_start_if_needed(req, resp)
       buf = (resp.private[:sse_buf] || "") <> chunk
       {frames, leftover} = ReqServerSentEvents.Frame.split(buf)
       check_frame_size!(leftover, max_size)
       resp = put_in(resp.private[:sse_buf], leftover)
 
       Enum.each(frames, fn raw ->
-        send(caller, {sse_ref, {:sse_event, ReqServerSentEvents.Frame.parse(raw)}})
+        frame = ReqServerSentEvents.Frame.parse(raw)
+        emit_decoded(raw, frame)
+        send(caller, {sse_ref, {:sse_event, frame}})
       end)
 
       {:cont, {req, resp}}
@@ -188,5 +223,52 @@ defmodule ReqServerSentEvents do
     end
 
     :ok
+  end
+
+  # ---------------------------------------------------------------------------
+  # Telemetry
+  # ---------------------------------------------------------------------------
+
+  @doc false
+  def emit_decoded(raw, frame) do
+    :telemetry.execute(
+      [:req_server_sent_events, :frame, :decoded],
+      %{bytes: byte_size(raw)},
+      %{frame: frame}
+    )
+  end
+
+  defp emit_start_if_needed(req, resp) do
+    if resp.private[:sse_started_at] do
+      resp
+    else
+      monotonic = System.monotonic_time()
+
+      :telemetry.execute(
+        [:req_server_sent_events, :stream, :start],
+        %{system_time: System.system_time(), monotonic_time: monotonic},
+        %{request: req}
+      )
+
+      put_in(resp.private[:sse_started_at], monotonic)
+    end
+  end
+
+  defp emit_stop_if_started({req, resp}) do
+    case resp.private[:sse_started_at] do
+      nil ->
+        {req, resp}
+
+      started ->
+        stop = System.monotonic_time()
+
+        :telemetry.execute(
+          [:req_server_sent_events, :stream, :stop],
+          %{monotonic_time: stop, duration: stop - started},
+          %{request: req, response: resp}
+        )
+
+        {req, resp}
+    end
   end
 end
