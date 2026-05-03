@@ -1,8 +1,26 @@
+defmodule ReqServerSentEventsTest.RaisingCollectable do
+  @moduledoc false
+  defstruct []
+end
+
+defimpl Collectable, for: ReqServerSentEventsTest.RaisingCollectable do
+  def into(_) do
+    collector = fn
+      _, {:cont, _frame} -> raise RuntimeError, "boom"
+      _, :done -> :done
+      _, :halt -> :ok
+    end
+
+    {nil, collector}
+  end
+end
+
 defmodule ReqServerSentEventsTest do
   use ExUnit.Case, async: true
 
   alias ReqServerSentEvents.Frame
   alias ReqServerSentEvents.FrameTooLargeError
+  alias ReqServerSentEventsTest.RaisingCollectable
 
   # Helper: build a Req.Request with the given into: value, attach the plugin,
   # and return the rewritten into: function (or collectable) for direct testing.
@@ -232,6 +250,14 @@ defmodule ReqServerSentEventsTest do
       {acc, collector} = Collectable.into(req.into)
       acc = collector.(acc, {:cont, "data: hello\n\n"})
       assert collector.(acc, :halt) == :ok
+    end
+
+    test "exception from inner collectable propagates" do
+      req = build_req(into: %RaisingCollectable{})
+
+      assert_raise RuntimeError, "boom", fn ->
+        Enum.into(["data: hello\n\n"], req.into)
+      end
     end
   end
 

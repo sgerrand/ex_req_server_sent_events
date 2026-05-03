@@ -10,6 +10,7 @@ defmodule ReqServerSentEvents.MixProject do
       version: @version,
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
+      consolidate_protocols: Mix.env() != :test,
       deps: deps(),
       test_coverage: [
         tool: ExCoveralls

@@ -126,6 +126,24 @@ defmodule ReqServerSentEventsIntegrationTest do
       assert {:ok, resp} = Req.get(req)
       assert ReqServerSentEvents.ref(resp) == sse_ref
     end
+
+    test "ref/1 on the response works for empty-body responses",
+         %{bypass: bypass, url: url} do
+      Bypass.expect_once(bypass, "GET", "/events", fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("content-type", "text/event-stream")
+        |> Plug.Conn.send_resp(204, "")
+      end)
+
+      req =
+        Req.new(url: url, into: :self)
+        |> ReqServerSentEvents.attach()
+
+      sse_ref = ReqServerSentEvents.ref(req)
+      assert {:ok, resp} = Req.get(req)
+      assert ReqServerSentEvents.ref(resp) == sse_ref
+      assert_received {^sse_ref, :sse_done}
+    end
   end
 
   # ---------------------------------------------------------------------------
