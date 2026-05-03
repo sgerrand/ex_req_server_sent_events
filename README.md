@@ -152,6 +152,51 @@ as the `Last-Event-ID` request header on reconnect. **This library decodes both
 fields but does not implement automatic reconnection** — that is the caller's
 responsibility.
 
+### Reconnection example
+
+A minimal `into: fun` consumer that tracks the most recent `id` and `retry`,
+then reconnects with `Last-Event-ID` after the suggested delay:
+
+```elixir
+defmodule SSEReconnectExample do
+  alias ReqServerSentEvents.Frame
+
+  @default_retry 3_000
+
+  def stream(url, last_id \\ nil) do
+    headers = if last_id, do: [{"last-event-id", last_id}], else: []
+
+    {:ok, resp} =
+      Req.new(url: url, headers: headers, into: &handle_event/2)
+      |> ReqServerSentEvents.attach()
+      |> Req.get()
+
+    last_id = resp.private[:last_id] || last_id
+    retry_ms = resp.private[:retry] || @default_retry
+    Process.sleep(retry_ms)
+    stream(url, last_id)
+  end
+
+  defp handle_event({:sse_event, %Frame{} = frame}, {req, resp}) do
+    resp =
+      resp
+      |> maybe_put_private(:last_id, frame.id)
+      |> maybe_put_private(:retry, frame.retry)
+
+    # ... process frame.data here ...
+
+    {:cont, {req, resp}}
+  end
+
+  defp maybe_put_private(resp, _key, nil), do: resp
+  defp maybe_put_private(resp, key, value), do: put_in(resp.private[key], value)
+end
+```
+
+Wrap the recursive `stream/2` call in a `Task` (or supervised `GenServer`) so it
+survives independent of the calling process, and add your own error handling for
+non-2xx responses, transport failures, and graceful shutdown.
+
 ## Development
 
 **Requirements:** Elixir ~> 1.17, Erlang/OTP compatible with your Elixir version.
