@@ -103,10 +103,6 @@ defmodule ReqServerSentEvents do
   def ref(%Req.Request{} = req), do: req.private[:sse_ref]
   def ref(%Req.Response{} = resp), do: resp.private[:sse_ref]
 
-  # ---------------------------------------------------------------------------
-  # Request step — rewrite req.into before the HTTP adapter runs
-  # ---------------------------------------------------------------------------
-
   defp sse_rewrite(%Req.Request{into: nil} = req), do: req
 
   defp sse_rewrite(%Req.Request{into: :self} = req),
@@ -140,10 +136,6 @@ defmodule ReqServerSentEvents do
     {frames, leftover}
   end
 
-  # ---------------------------------------------------------------------------
-  # into: fun — buffer lives in resp.private[:sse_buf]
-  # ---------------------------------------------------------------------------
-
   defp wrap_fun(%Req.Request{} = req, user_fun) do
     max_size = req.private[:sse_max_frame_size]
 
@@ -164,10 +156,6 @@ defmodule ReqServerSentEvents do
       {:halt, acc} -> {:halt, {:halt, acc}}
     end
   end
-
-  # ---------------------------------------------------------------------------
-  # into: :self — rewrite to into: fun that sends messages; register sse_done
-  # ---------------------------------------------------------------------------
 
   defp wrap_self(%Req.Request{} = req) do
     caller = self()
@@ -193,10 +181,6 @@ defmodule ReqServerSentEvents do
     req = %{req | into: wrapped}
     Req.Request.append_response_steps(req, sse_done: send_done)
   end
-
-  # ---------------------------------------------------------------------------
-  # into: collectable — wrap in CollectableWrapper
-  # ---------------------------------------------------------------------------
 
   defp wrap_collectable(%Req.Request{} = req, collectable) do
     wrapper = %ReqServerSentEvents.CollectableWrapper{
