@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-brew install actionlint check-jsonschema markdownlint-cli2
+brew install actionlint check-jsonschema
+brew tap akiomik/mado https://github.com/akiomik/mado.git
+brew install mado
 mix deps.get
 mix git_hoox.install
