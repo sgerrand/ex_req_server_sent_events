@@ -122,22 +122,6 @@ defmodule ReqServerSentEvents do
   end
 
   # ---------------------------------------------------------------------------
-  # Response step — send :sse_done sentinel for the :self path
-  # ---------------------------------------------------------------------------
-
-  defp send_sse_done({req, resp}) do
-    caller = req.private[:sse_caller]
-    sse_ref = req.private[:sse_ref]
-
-    if caller && sse_ref do
-      send(caller, {sse_ref, :sse_done})
-      {req, put_in(resp.private[:sse_ref], sse_ref)}
-    else
-      {req, resp}
-    end
-  end
-
-  # ---------------------------------------------------------------------------
   # Shared decode pipeline
   # ---------------------------------------------------------------------------
 
@@ -200,11 +184,14 @@ defmodule ReqServerSentEvents do
       {:cont, {req, resp}}
     end
 
-    req
-    |> Req.Request.put_private(:sse_ref, sse_ref)
-    |> Req.Request.put_private(:sse_caller, caller)
-    |> then(&%{&1 | into: wrapped})
-    |> Req.Request.append_response_steps(sse_done: &send_sse_done/1)
+    send_done = fn {req, resp} ->
+      send(caller, {sse_ref, :sse_done})
+      {req, put_in(resp.private[:sse_ref], sse_ref)}
+    end
+
+    req = Req.Request.put_private(req, :sse_ref, sse_ref)
+    req = %{req | into: wrapped}
+    Req.Request.append_response_steps(req, sse_done: send_done)
   end
 
   # ---------------------------------------------------------------------------
