@@ -5,6 +5,8 @@ on:
     branches:
       - main
 
+permissions: {}
+
 jobs:
   release-please:
     uses: release-baton/release-baton/.github/workflows/release-please.yml@v1.1.1

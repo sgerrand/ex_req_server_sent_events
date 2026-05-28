@@ -342,14 +342,16 @@ defmodule ReqServerSentEventsTest do
       :telemetry.attach_many(
         handler_id,
         events,
-        fn name, measurements, metadata, _ ->
-          send(parent, {:telemetry, name, measurements, metadata})
-        end,
-        nil
+        &__MODULE__.handle_telemetry/4,
+        parent
       )
 
       on_exit(fn -> :telemetry.detach(handler_id) end)
       :ok
+    end
+
+    def handle_telemetry(name, measurements, metadata, parent) do
+      send(parent, {:telemetry, name, measurements, metadata})
     end
 
     test "into: fun emits :start, :decoded, :stop" do

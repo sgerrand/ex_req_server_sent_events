@@ -17,7 +17,7 @@
        run:
          "check-jsonschema --schemafile https://raw.githubusercontent.com/googleapis/release-please/main/schemas/manifest.json {files}",
        files: ~w(.release-please-manifest.json)},
-      {GitHoox.Hooks.Shell, run: "markdownlint-cli2 {files}", files: ~w(*.md)},
+      {GitHoox.Hooks.Shell, run: "mado check {files}", files: ~w(*.md)},
       {GitHoox.Hooks.Shell, run: "mix compile --warnings-as-errors"},
       {GitHoox.Hooks.Format, check_only: true}
     ],
