@@ -185,5 +185,20 @@ defmodule ReqServerSentEvents.FrameTest do
     test "CRLF multiple comment lines preserved in order" do
       assert Frame.parse(": first\r\n: second") == %Frame{comments: ["first", "second"]}
     end
+
+    test "bare CR line endings (SSE spec §9.2.4)" do
+      assert Frame.parse("event: ping\rdata: hello") == %Frame{event: "ping", data: "hello"}
+    end
+
+    test "mixed line endings within a single frame" do
+      raw = "event: update\r\ndata: payload\nid: 99\rretry: 1000"
+
+      assert Frame.parse(raw) == %Frame{
+               event: "update",
+               data: "payload",
+               id: "99",
+               retry: 1000
+             }
+    end
   end
 end
