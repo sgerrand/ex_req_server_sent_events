@@ -117,31 +117,15 @@ defmodule ReqServerSentEvents do
     Req.Request.append_response_steps(req, sse_telemetry_stop: &emit_stop_if_started/1)
   end
 
-  # ---------------------------------------------------------------------------
-  # Shared decode pipeline
-  # ---------------------------------------------------------------------------
-
-  @doc false
-  def decode_chunk(buf, chunk, max_size) do
-    {raw_frames, leftover} = ReqServerSentEvents.Frame.split(buf <> chunk)
-    check_frame_size!(leftover, max_size)
-
-    frames =
-      Enum.map(raw_frames, fn raw ->
-        frame = ReqServerSentEvents.Frame.parse(raw)
-        emit_decoded(raw, frame)
-        frame
-      end)
-
-    {frames, leftover}
-  end
-
   defp wrap_fun(%Req.Request{} = req, user_fun) do
     max_size = req.private[:sse_max_frame_size]
 
     wrapped = fn {:data, chunk}, {req, resp} ->
       resp = emit_start_if_needed(req, resp)
-      {frames, leftover} = decode_chunk(resp.private[:sse_buf] || "", chunk, max_size)
+
+      {frames, leftover} =
+        ReqServerSentEvents.Internal.decode_chunk(resp.private[:sse_buf] || "", chunk, max_size)
+
       resp = put_in(resp.private[:sse_buf], leftover)
 
       Enum.reduce_while(frames, {:cont, {req, resp}}, &reduce_frame(&1, &2, user_fun))
@@ -164,7 +148,10 @@ defmodule ReqServerSentEvents do
 
     wrapped = fn {:data, chunk}, {req, resp} ->
       resp = emit_start_if_needed(req, resp)
-      {frames, leftover} = decode_chunk(resp.private[:sse_buf] || "", chunk, max_size)
+
+      {frames, leftover} =
+        ReqServerSentEvents.Internal.decode_chunk(resp.private[:sse_buf] || "", chunk, max_size)
+
       resp = put_in(resp.private[:sse_buf], leftover)
 
       Enum.each(frames, &send(caller, {sse_ref, {:sse_event, &1}}))
@@ -191,29 +178,9 @@ defmodule ReqServerSentEvents do
     %{req | into: wrapper}
   end
 
-  defp check_frame_size!(_leftover, nil), do: :ok
-
-  defp check_frame_size!(leftover, max_size) when is_integer(max_size) do
-    size = byte_size(leftover)
-
-    if size > max_size do
-      raise ReqServerSentEvents.FrameTooLargeError, size: size, limit: max_size
-    end
-
-    :ok
-  end
-
   # ---------------------------------------------------------------------------
   # Telemetry
   # ---------------------------------------------------------------------------
-
-  defp emit_decoded(raw, frame) do
-    :telemetry.execute(
-      [:req_server_sent_events, :frame, :decoded],
-      %{bytes: byte_size(raw)},
-      %{frame: frame}
-    )
-  end
 
   defp emit_start_if_needed(req, resp) do
     if resp.private[:sse_started_at] do

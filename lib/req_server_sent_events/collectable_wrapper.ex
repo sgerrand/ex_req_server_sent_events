@@ -17,7 +17,7 @@ defmodule ReqServerSentEvents.CollectableWrapper do
 
       collector = fn
         {buf, iacc}, {:cont, chunk} ->
-          {frames, leftover} = ReqServerSentEvents.decode_chunk(buf, chunk, max_size)
+          {frames, leftover} = ReqServerSentEvents.Internal.decode_chunk(buf, chunk, max_size)
           new_iacc = Enum.reduce(frames, iacc, &inner_collector.(&2, {:cont, &1}))
           {leftover, new_iacc}
 
