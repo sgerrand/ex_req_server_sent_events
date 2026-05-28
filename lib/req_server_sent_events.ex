@@ -138,6 +138,25 @@ defmodule ReqServerSentEvents do
   end
 
   # ---------------------------------------------------------------------------
+  # Shared decode pipeline
+  # ---------------------------------------------------------------------------
+
+  @doc false
+  def decode_chunk(buf, chunk, max_size) do
+    {raw_frames, leftover} = ReqServerSentEvents.Frame.split(buf <> chunk)
+    check_frame_size!(leftover, max_size)
+
+    frames =
+      Enum.map(raw_frames, fn raw ->
+        frame = ReqServerSentEvents.Frame.parse(raw)
+        emit_decoded(raw, frame)
+        frame
+      end)
+
+    {frames, leftover}
+  end
+
+  # ---------------------------------------------------------------------------
   # into: fun — buffer lives in resp.private[:sse_buf]
   # ---------------------------------------------------------------------------
 
@@ -146,9 +165,7 @@ defmodule ReqServerSentEvents do
 
     wrapped = fn {:data, chunk}, {req, resp} ->
       resp = emit_start_if_needed(req, resp)
-      buf = (resp.private[:sse_buf] || "") <> chunk
-      {frames, leftover} = ReqServerSentEvents.Frame.split(buf)
-      check_frame_size!(leftover, max_size)
+      {frames, leftover} = decode_chunk(resp.private[:sse_buf] || "", chunk, max_size)
       resp = put_in(resp.private[:sse_buf], leftover)
 
       Enum.reduce_while(frames, {:cont, {req, resp}}, &reduce_frame(&1, &2, user_fun))
@@ -157,10 +174,7 @@ defmodule ReqServerSentEvents do
     %{req | into: wrapped}
   end
 
-  defp reduce_frame(raw, {:cont, {req, resp}}, user_fun) do
-    frame = ReqServerSentEvents.Frame.parse(raw)
-    emit_decoded(raw, frame)
-
+  defp reduce_frame(frame, {:cont, {req, resp}}, user_fun) do
     case user_fun.({:sse_event, frame}, {req, resp}) do
       {:cont, acc} -> {:cont, {:cont, acc}}
       {:halt, acc} -> {:halt, {:halt, acc}}
@@ -178,16 +192,10 @@ defmodule ReqServerSentEvents do
 
     wrapped = fn {:data, chunk}, {req, resp} ->
       resp = emit_start_if_needed(req, resp)
-      buf = (resp.private[:sse_buf] || "") <> chunk
-      {frames, leftover} = ReqServerSentEvents.Frame.split(buf)
-      check_frame_size!(leftover, max_size)
+      {frames, leftover} = decode_chunk(resp.private[:sse_buf] || "", chunk, max_size)
       resp = put_in(resp.private[:sse_buf], leftover)
 
-      Enum.each(frames, fn raw ->
-        frame = ReqServerSentEvents.Frame.parse(raw)
-        emit_decoded(raw, frame)
-        send(caller, {sse_ref, {:sse_event, frame}})
-      end)
+      Enum.each(frames, &send(caller, {sse_ref, {:sse_event, &1}}))
 
       {:cont, {req, resp}}
     end
@@ -212,10 +220,9 @@ defmodule ReqServerSentEvents do
     %{req | into: wrapper}
   end
 
-  @doc false
-  def check_frame_size!(_leftover, nil), do: :ok
+  defp check_frame_size!(_leftover, nil), do: :ok
 
-  def check_frame_size!(leftover, max_size) when is_integer(max_size) do
+  defp check_frame_size!(leftover, max_size) when is_integer(max_size) do
     size = byte_size(leftover)
 
     if size > max_size do
@@ -229,8 +236,7 @@ defmodule ReqServerSentEvents do
   # Telemetry
   # ---------------------------------------------------------------------------
 
-  @doc false
-  def emit_decoded(raw, frame) do
+  defp emit_decoded(raw, frame) do
     :telemetry.execute(
       [:req_server_sent_events, :frame, :decoded],
       %{bytes: byte_size(raw)},

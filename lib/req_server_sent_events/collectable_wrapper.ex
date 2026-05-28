@@ -17,16 +17,8 @@ defmodule ReqServerSentEvents.CollectableWrapper do
 
       collector = fn
         {buf, iacc}, {:cont, chunk} ->
-          {frames, leftover} = ReqServerSentEvents.Frame.split(buf <> chunk)
-          ReqServerSentEvents.check_frame_size!(leftover, max_size)
-
-          new_iacc =
-            Enum.reduce(frames, iacc, fn raw, acc ->
-              frame = ReqServerSentEvents.Frame.parse(raw)
-              ReqServerSentEvents.emit_decoded(raw, frame)
-              inner_collector.(acc, {:cont, frame})
-            end)
-
+          {frames, leftover} = ReqServerSentEvents.decode_chunk(buf, chunk, max_size)
+          new_iacc = Enum.reduce(frames, iacc, &inner_collector.(&2, {:cont, &1}))
           {leftover, new_iacc}
 
         {_buf, iacc}, :done ->
