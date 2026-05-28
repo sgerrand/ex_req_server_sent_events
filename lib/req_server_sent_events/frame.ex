@@ -17,16 +17,18 @@ defmodule ReqServerSentEvents.Frame do
           comments: [String.t()]
         }
 
-  @doc """
-  Split a byte buffer on the SSE frame delimiter (`"\\n\\n"`).
+  @frame_delimiters ["\n\n", "\r\n\r\n", "\r\r"]
 
-  `"\\r\\n"` sequences are normalised to `"\\n"` before splitting, so servers
-  that send CRLF line endings (e.g. `"\\r\\n\\r\\n"` frame delimiters) are handled
-  transparently. The returned frame strings use `"\\n"` throughout. A leading
-  UTF-8 byte order mark (`"\\uFEFF"`) is stripped per the SSE spec.
+  @doc """
+  Split a byte buffer on the SSE frame delimiter.
+
+  Recognises `"\\n\\n"`, `"\\r\\n\\r\\n"`, and `"\\r\\r"` as frame
+  delimiters per SSE spec §9.2.4. Returned frame strings retain their
+  original line endings; `parse/1` handles all three terminator forms.
+  A leading UTF-8 byte order mark (`"\\uFEFF"`) is stripped per the spec.
 
   Returns `{complete_frames, leftover}` where `complete_frames` is a list of raw
-  frame strings (without the trailing `"\\n\\n"`) and `leftover` is the remaining
+  frame strings (without the trailing delimiter) and `leftover` is the remaining
   bytes that have not yet formed a complete frame.
 
   ## Examples
@@ -42,12 +44,8 @@ defmodule ReqServerSentEvents.Frame do
   """
   @spec split(binary()) :: {[binary()], binary()}
   def split(buffer) when is_binary(buffer) do
-    buffer =
-      buffer
-      |> String.trim_leading(<<0xEF, 0xBB, 0xBF>>)
-      |> String.replace("\r\n", "\n")
-
-    parts = :binary.split(buffer, "\n\n", [:global])
+    buffer = String.trim_leading(buffer, <<0xEF, 0xBB, 0xBF>>)
+    parts = :binary.split(buffer, @frame_delimiters, [:global])
     {complete, [leftover]} = Enum.split(parts, -1)
     {Enum.reject(complete, &(&1 == "")), leftover}
   end

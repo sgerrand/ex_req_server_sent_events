@@ -51,9 +51,22 @@ defmodule ReqServerSentEvents.FrameTest do
       assert Frame.split("data: hello\r\n\r\ndata: part") == {["data: hello"], "data: part"}
     end
 
-    test "CRLF line endings within frame normalised before split" do
+    test "CRLF frame delimiters split cleanly with multiple frames" do
       input = "data: one\r\n\r\ndata: two\r\n\r\n"
       assert Frame.split(input) == {["data: one", "data: two"], ""}
+    end
+
+    test "bare CR frame delimiter (SSE spec §9.2.4)" do
+      assert Frame.split("data: hello\r\r") == {["data: hello"], ""}
+    end
+
+    test "bare CR frame delimiter with leftover" do
+      assert Frame.split("data: hello\r\rdata: part") == {["data: hello"], "data: part"}
+    end
+
+    test "CRLF line endings within a frame are preserved for parse/1" do
+      input = "event: ping\r\ndata: hello\r\n\r\n"
+      assert {["event: ping\r\ndata: hello"], ""} = Frame.split(input)
     end
 
     test "CRLF split across chunks handled correctly" do
