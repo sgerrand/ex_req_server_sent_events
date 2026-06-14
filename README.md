@@ -21,7 +21,7 @@ wrapping all three of Req's streaming hooks: `into: fun`, `into: :self`, and
 def deps do
   [
     {:req, "~> 0.5"},
-    {:req_server_sent_events, "~> 0.2.0"}
+    {:req_server_sent_events, "~> 0.2.1"}
   ]
 end
 ```
