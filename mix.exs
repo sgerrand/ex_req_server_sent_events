@@ -1,7 +1,7 @@
 defmodule ReqServerSentEvents.MixProject do
   use Mix.Project
 
-  @version "0.2.0"
+  @version "0.2.1"
   @source_url "https://github.com/sgerrand/ex_req_server_sent_events"
 
   def project do
