@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.2.1](https://github.com/sgerrand/ex_req_server_sent_events/compare/v0.2.0...v0.2.1) (2026-06-14)
+
+
+### Bug Fixes
+
+* **deps:** bump req from 0.5.17 to 0.5.18 ([#6](https://github.com/sgerrand/ex_req_server_sent_events/issues/6)) ([f73ce0f](https://github.com/sgerrand/ex_req_server_sent_events/commit/f73ce0f5d8ca42f1caae2773bb0cda36b3401d8d))
+* **frame:** handle bare CR as line terminator in parse/1 ([001f4da](https://github.com/sgerrand/ex_req_server_sent_events/commit/001f4daeba628fe34514d4da3f487f1655313639))
+* **frame:** restore single-pattern split fast path for LF buffers ([c90dce1](https://github.com/sgerrand/ex_req_server_sent_events/commit/c90dce189961278fedf6995ed2b4fa472e1886b2))
+
+
+### Performance Improvements
+
+* **frame:** split on multi-pattern delimiters without normalising ([926d4a0](https://github.com/sgerrand/ex_req_server_sent_events/commit/926d4a0db23d6095d61d548d4fa31d14f39d0147))
+
 ## [0.2.0](https://github.com/sgerrand/ex_req_server_sent_events/compare/v0.1.0...v0.2.0) (2026-05-03)
 
 
