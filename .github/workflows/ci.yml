@@ -42,7 +42,7 @@ jobs:
         version-type: 'strict'
     - name: Cache dependencies
       id: cache-deps
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           _build
@@ -82,7 +82,7 @@ jobs:
         version-type: 'strict'
     - name: Cache dependencies
       id: cache-deps
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           _build
@@ -95,7 +95,7 @@ jobs:
         # shellcheck disable=SC1010
         mix do deps.get --only ${{ env.MIX_ENV }} + deps.compile
     - name: Cache Dialyzer PLT
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: priv/plts
         key: ${{ runner.os }}-plt-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('**/mix.lock') }}
@@ -122,7 +122,7 @@ jobs:
         version-type: 'strict'
     - name: Cache dependencies
       id: cache-deps
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           _build
@@ -180,7 +180,7 @@ jobs:
         otp-version: ${{matrix.otp}}
     - name: Cache dependencies
       id: cache-deps
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           _build
