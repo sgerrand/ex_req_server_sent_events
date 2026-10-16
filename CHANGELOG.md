@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.2.5](https://github.com/sgerrand/ex_req_server_sent_events/compare/v0.2.4...v0.2.5) (2026-10-16)
+
+
+### Bug Fixes
+
+* **deps:** bump req from 0.7.4 to 0.7.5 ([#35](https://github.com/sgerrand/ex_req_server_sent_events/issues/35)) ([b664925](https://github.com/sgerrand/ex_req_server_sent_events/commit/b6649250388b1529fbdd34677093fa6095fc33ac))
+
 ## [0.2.4](https://github.com/sgerrand/ex_req_server_sent_events/compare/v0.2.3...v0.2.4) (2026-09-18)
 
 
